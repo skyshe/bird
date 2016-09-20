@@ -20,6 +20,11 @@ INSTALL=@INSTALL@
 INSTALL_PROGRAM=@INSTALL_PROGRAM@
 INSTALL_DATA=@INSTALL_DATA@
 
+git-version:=$(shell git describe --abbrev=6 --dirty --always --tags 2> /dev/null)
+ifneq ($(strip $(git-version)),)
+        CFLAGS += -DGIT_VERSION=\"$(git-version)\"
+endif
+
 client=$(addprefix $(exedir)/,@CLIENT@)
 daemon=$(exedir)/bird
 protocols  = @protocols@
