@@ -11,6 +11,7 @@
 #include "string.h"
 
 #include <errno.h>
+#include <limits.h>
 
 #include "nest/iface.h"
 
@@ -34,81 +35,124 @@ static int skip_atoi(const char **s)
 #define SPECIAL	32		/* 0x */
 #define LARGE	64		/* use 'ABCDEF' instead of 'abcdef' */
 
-#define do_div(n,base) ({ \
-int __res; \
-__res = ((unsigned long) n) % (unsigned) base; \
-n = ((unsigned long) n) / (unsigned) base; \
-__res; })
-
-static char * number(char * str, long num, int base, int size, int precision,
-	int type, int remains)
+static char * number(char * buf, long num, int base, int field_width, int type, int bufsize)
 {
-	char c,sign,tmp[66];
-	const char *digits="0123456789abcdefghijklmnopqrstuvwxyz";
-	int i;
+	char sign = 0;
+	unsigned long n = ((type & SIGN) && num < 0) ? -num : (unsigned long) num;
 
-	if (size >= 0 && (remains -= size) < 0)
-		return NULL;
-	if (type & LARGE)
-		digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-	if (type & LEFT)
-		type &= ~ZEROPAD;
-	if (base < 2 || base > 36)
-		return 0;
-	c = (type & ZEROPAD) ? '0' : ' ';
-	sign = 0;
-	if (type & SIGN) {
-		if (num < 0) {
+	if (type & SIGN)
+		if (num < 0)
 			sign = '-';
-			num = -num;
-			size--;
-		} else if (type & PLUS) {
+		else if (type & PLUS)
 			sign = '+';
-			size--;
-		} else if (type & SPACE) {
+		else if (type & SPACE)
 			sign = ' ';
-			size--;
+
+	const char *prefix = "";
+	int pxlen = 0;
+
+	if (type & SPECIAL)
+		switch (base) {
+			case 8: prefix = "0";
+				pxlen = 1;
+				break;
+			case 16: prefix = (type & LARGE) ? "0X" : "0x";
+				 pxlen = 2;
+				 break;
+		}
+
+	int numlen = 0, padlen = 0;
+	char *padpos, *pxpos, *signpos, *numpos;
+	char padc;
+
+	if (n == 0)
+		if (base == 8)
+			numlen = 0;
+		else
+			numlen = 1;
+	else {
+		if (base == 10) {
+			if (n >= 1000000000)
+				numlen = 10;
+			else
+				for (unsigned long nn = 1; (nn <= n); nn *= 10)
+					numlen++;
+		} else {
+			int bits = sizeof(unsigned long) * CHAR_BIT - __builtin_clzl(n);
+			if (base == 8)
+				numlen = (bits + 2) / 3;
+			else if (base == 16)
+				numlen = (bits + 3) / 4;
+			else
+				bug("Unsupported number base");
 		}
 	}
-	if (type & SPECIAL) {
-		if (base == 16)
-			size -= 2;
-		else if (base == 8)
-			size--;
-	}
-	i = 0;
-	if (num == 0)
-		tmp[i++]='0';
-	else while (num != 0)
-		tmp[i++] = digits[do_div(num,base)];
-	if (i > precision)
-		precision = i;
-	size -= precision;
-	if (size < 0 && -size > remains)
+
+	if (numlen + (!!sign) + pxlen > field_width)
+		field_width = numlen + (!!sign) + pxlen;
+
+	padlen = field_width - (numlen + (!!sign) + pxlen);
+
+	if (field_width > bufsize)
 		return NULL;
-	if (!(type&(ZEROPAD+LEFT)))
-		while(size-->0)
-			*str++ = ' ';
-	if (sign)
-		*str++ = sign;
-	if (type & SPECIAL) {
-		if (base==8)
-			*str++ = '0';
-		else if (base==16) {
-			*str++ = '0';
-			*str++ = digits[33];
-		}
+
+	if (type & LEFT) {
+		signpos = buf;
+		pxpos = signpos + (!!sign);
+		numpos = pxpos + pxlen;
+		padpos = numpos + numlen;
+		padc = ' ';
+	} else if (type & ZEROPAD) {
+		signpos = buf;
+		pxpos = signpos + (!!sign);
+		padpos = pxpos + pxlen;
+		numpos = padpos + padlen;
+		padc = '0';
+	} else {
+		padpos = buf;
+		signpos = padpos + padlen;
+		pxpos = signpos + (!!sign);
+		numpos = pxpos + pxlen;
+		padc = ' ';
 	}
-	if (!(type & LEFT))
-		while (size-- > 0)
-			*str++ = c;
-	while (i < precision--)
-		*str++ = '0';
-	while (i-- > 0)
-		*str++ = tmp[i];
-	while (size-- > 0)
-		*str++ = ' ';
-	return str;
+
+	if (sign)
+		*signpos = sign;
+
+	if (pxlen)
+		memcpy(pxpos, prefix, pxlen);
+
+	if (padlen)
+		memset(padpos, padc, padlen);
+
+	if (n == 0) {
+		if (numlen)
+			*numpos = '0';
+		return buf + field_width;
+	}
+
+	switch (base) {
+		case 8: for (char *numend = numpos + numlen; n; n >>= 3)
+				*(--numend) = '0' + (n & 0x7);
+			break;
+		case 10: {
+				while (numlen--) {
+					unsigned long nn = n;
+					n = ((unsigned long) n * 3435973837) >> 35;
+					nn -= n * 10;
+					numpos[numlen] = '0' + nn;
+				}
+				break;
+			 }
+		case 16: {
+				const char *c16 = (type & LARGE) ? "0123456789ABCDEF" : "0123456789abcdef";
+				for (char *numend = numpos + numlen; n; n >>= 4)
+					*(--numend) = c16[n & 0xf];
+				break;
+			 }
+	}
+
+	return buf + field_width;
 }
 
 /**
@@ -147,8 +191,7 @@ int bvsnprintf(char *buf, int size, const char *fmt, va_list args)
 	int flags;		/* flags to number() */
 
 	int field_width;	/* width of output field */
-	int precision;		/* min. # of digits for integers; max
-				   number of chars for from string */
+	int precision;		/* max number of chars for from string */
 	int qualifier;		/* 'h', 'l', or 'L' for integer fields */
 
 	for (start=str=buf ; *fmt ; ++fmt, size-=(str-start), start=str) {
@@ -266,7 +309,7 @@ int bvsnprintf(char *buf, int size, const char *fmt, va_list args)
 			}
 			str = number(str,
 				(unsigned long) va_arg(args, void *), 16,
-				field_width, precision, flags, size);
+				field_width, flags, size);
 			if (!str)
 				return -1;
 			continue;
@@ -373,7 +416,7 @@ int bvsnprintf(char *buf, int size, const char *fmt, va_list args)
 			num = va_arg(args, int);
 		else
 			num = va_arg(args, uint);
-		str = number(str, num, base, field_width, precision, flags, size);
+		str = number(str, num, base, field_width, flags, size);
 		if (!str)
 			return -1;
 	}
