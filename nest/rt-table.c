@@ -1597,20 +1597,28 @@ again:
       rte *e;
 
     rescan:
-      for (e=n->routes; e; e=e->next)
-	if (e->sender->proto->flushing || (e->flags & REF_DISCARD))
-	  {
-	    if (*limit <= 0)
-	      {
-		FIB_ITERATE_PUT(fit, fn);
-		return 0;
-	      }
+      if (*limit <= 0)
+      {
+	FIB_ITERATE_PUT(fit, fn);
+	return 0;
+      }
 
-	    rte_discard(e);
-	    (*limit)--;
+      if (n->routes) /* First drop all non-best routes. */
+	for (e=n->routes->next; e; e=e->next)
+	  if (e->sender->proto->flushing || (e->flags & REF_DISCARD))
+	    {
+	      rte_discard(e);
+	      (*limit)--;
 
-	    goto rescan;
-	  }
+	      goto rescan;
+	    }
+
+      if (n->routes && (n->routes->sender->proto->flushing || (n->routes->flags & REF_DISCARD)))
+	{
+	  rte_discard(n->routes);
+	  (*limit)--;
+	}
+
       if (!n->routes)		/* Orphaned FIB entry */
 	{
 	  FIB_ITERATE_PUT(fit, fn);
