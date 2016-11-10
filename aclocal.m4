@@ -145,6 +145,18 @@ AC_DEFUN(BIRD_CHECK_PTHREADS,
   CFLAGS="$bird_tmp_cflags"
 ])
 
+AC_DEFUN(BIRD_CHECK_ZLIB,
+[
+  bird_tmp_cflags="$CFLAGS"
+
+  CFLAGS="$CFLAGS -lz"
+  AC_CACHE_CHECK([whether Zlib is available], bird_cv_zlib,
+    [AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <zlib.h>]], [[z_stream zs = {}; deflateInit(&zs, 9);]])],
+		    [bird_cv_zlib=yes], [bird_cv_zlib=no])])
+
+  CFLAGS="$bird_tmp_cflags"
+])
+
 AC_DEFUN(BIRD_CHECK_GCC_OPTION,
 [
   bird_tmp_cflags="$CFLAGS"

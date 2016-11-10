@@ -923,6 +923,9 @@ protos_build(void)
 #ifdef CONFIG_BABEL
   proto_build(&proto_babel);
 #endif
+#ifdef CONFIG_QUERY
+  proto_build(&proto_query);
+#endif
 
   proto_pool = rp_new(&root_pool, "Protocols");
   proto_flush_event = ev_new(proto_pool);

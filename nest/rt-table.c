@@ -2442,7 +2442,7 @@ rt_show_rte(struct cli *c, byte *ia, rte *e, struct rt_show_data *d, ea_list *tm
     rta_show(c, a, tmpa);
 }
 
-static void
+void
 rt_show_net(struct cli *c, net *n, struct rt_show_data *d)
 {
   rte *e, *ee;

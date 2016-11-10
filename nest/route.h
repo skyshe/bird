@@ -314,6 +314,7 @@ struct rt_show_data {
   int stats, show_for;
 };
 void rt_show(struct rt_show_data *);
+void rt_show_net(struct cli *c, net *n, struct rt_show_data *d);
 
 /* Value of export_mode in struct rt_show_data */
 #define RSEM_NONE	0		/* Export mode not used */

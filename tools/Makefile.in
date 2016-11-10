@@ -1,11 +1,15 @@
 # Makefile for the BIRD Internet Routing Daemon
 # (c) 1999--2000 Martin Mares <mj@ucw.cz>
 
+MAKEFLAGS+=-rR
+
 include Rules
 
 .PHONY: all daemon birdc birdcl subdir depend clean distclean tags docs userdocs progdocs
 
-all: sysdep/paths.h .dep-stamp subdir daemon birdcl @CLIENT@
+all: sysdep/paths.h .dep-stamp subdir daemon birdcl @CLIENT@ @QCLI@
+
+qcli: $(exedir)/qcli
 
 daemon: $(exedir)/bird
 
@@ -25,6 +29,9 @@ birdcl-dep := client/birdcl.o client/all.o lib/birdlib.a
 
 $(birdcl-dep): sysdep/paths.h .dep-stamp subdir
 
+qcli-dep := proto/query/client.o lib/birdlib.a
+
+$(qcli-dep): sysdep/paths.h .dep-stamp subdir
 
 export client := @CLIENT@
 
@@ -45,6 +52,10 @@ $(exedir)/birdc: $(birdc-dep)
 	@$(CC) $(LDFLAGS) -o $@ $^ $(LIBS) $(CLIENT_LIBS)
 
 $(exedir)/birdcl: $(birdcl-dep)
+	@echo LD $(LDFLAGS) -o $@ $^ $(LIBS)
+	@$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+
+$(exedir)/qcli: $(qcli-dep)
 	@echo LD $(LDFLAGS) -o $@ $^ $(LIBS)
 	@$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 

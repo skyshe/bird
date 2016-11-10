@@ -343,8 +343,21 @@ static inline uint ip6_pxlen(ip6_addr a, ip6_addr b)
 static inline u32 ip4_getbit(ip4_addr a, uint pos)
 { return _I(a) & (0x80000000 >> pos); }
 
+static inline u32 ip4_getbitrange(ip4_addr a, uint pos, uint len)
+{ return u32_getbitrange(_I(a), pos, len); }
+
 static inline u32 ip6_getbit(ip6_addr a, uint pos)
 { return a.addr[pos / 32] & (0x80000000 >> (pos % 32)); }
+
+static inline u32 ip6_getbitrange(ip6_addr a, uint pos, uint len)
+{
+  if ((pos + len - 1) / 32 == pos / 32)
+    return u32_getbitrange(a.addr[pos/32], pos%32, len);
+  else
+    return
+        u32_getbitrange(a.addr[pos/32], pos%32, 32-pos%32) << ((pos+len)%32)
+      | u32_getbitrange(a.addr[pos/32 + 1], 0, ((pos+len)%32));
+}
 
 static inline ip4_addr ip4_opposite_m1(ip4_addr a)
 { return _MI4(_I(a) ^ 1); }
@@ -365,6 +378,7 @@ ip4_addr ip4_class_mask(ip4_addr ad);
 #define ipa_masklen(x) ip6_masklen(&x)
 #define ipa_pxlen(x,y) ip6_pxlen(x,y)
 #define ipa_getbit(x,n) ip6_getbit(x,n)
+#define ipa_getbitrange(x,p,l) ip6_getbitrange(x,p,l)
 #define ipa_opposite_m1(x) ip6_opposite_m1(x)
 #define ipa_opposite_m2(x) ip6_opposite_m2(x)
 #else
@@ -372,6 +386,7 @@ ip4_addr ip4_class_mask(ip4_addr ad);
 #define ipa_masklen(x) ip4_masklen(x)
 #define ipa_pxlen(x,y) ip4_pxlen(x,y)
 #define ipa_getbit(x,n) ip4_getbit(x,n)
+#define ipa_getbitrange(x,p,l) ip4_getbitrange(x,p,l)
 #define ipa_opposite_m1(x) ip4_opposite_m1(x)
 #define ipa_opposite_m2(x) ip4_opposite_m2(x)
 #endif

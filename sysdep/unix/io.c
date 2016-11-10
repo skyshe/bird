@@ -1511,7 +1511,8 @@ sk_open_unix(sock *s, char *name)
     return -1;
 
   s->fd = fd;
-  sk_insert(s);
+  if (!(s->flags & SKF_THREAD))
+    sk_insert(s);
   return 0;
 }
 

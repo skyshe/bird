@@ -25,6 +25,17 @@
     (v).data = mb_allocz(pool, HASH_SIZE(v) * sizeof(* (v).data));	\
   })
 
+#define HASH_DESTROY(v,id,fun)						\
+  ({									\
+    HASH_TYPE(v) *_n, *_n2, **_d = (v).data;				\
+    uint _s = HASH_SIZE(v);						\
+    for (uint _i = 0; _i < _s; _i++)					\
+      for (_n = _d[_i]; _n && (_n2 = id##_NEXT(_n), 1); _n = _n2)	\
+	fun(_n);							\
+    mb_free(_d);							\
+    (v).data = NULL; (v).count = 0; (v).order = 0;			\
+  })
+
 #define HASH_FIND(v,id,key...)						\
   ({									\
     u32 _h = HASH_FN(v, id, key);					\
