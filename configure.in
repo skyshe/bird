@@ -62,7 +62,7 @@ if test "$enable_query" = yes ; then
 	enable_pthreads=yes
 	enable_zlib=yes
 	LDFLAGS="${LDFLAGS} -lrt"
-	QCLI=qcli
+	QCLI=qcli.so
 fi
 AC_SUBST(QCLI)
 

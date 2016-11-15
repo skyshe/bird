@@ -54,6 +54,7 @@ all:
 
 ifdef lib-dest
 
+CFLAGS+=-fPIC
 subdir: $(lib-dest)
 
 $(lib-dest): $(objs)

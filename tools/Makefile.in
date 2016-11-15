@@ -9,7 +9,7 @@ include Rules
 
 all: sysdep/paths.h .dep-stamp subdir daemon birdcl @CLIENT@ @QCLI@
 
-qcli: $(exedir)/qcli
+qcli.so: $(exedir)/qcli.so
 
 daemon: $(exedir)/bird
 
@@ -29,7 +29,7 @@ birdcl-dep := client/birdcl.o client/all.o lib/birdlib.a
 
 $(birdcl-dep): sysdep/paths.h .dep-stamp subdir
 
-qcli-dep := proto/query/client.o lib/birdlib.a
+qcli-dep := proto/query/lib.o lib/bitops.o lib/ip.o lib/printf.o
 
 $(qcli-dep): sysdep/paths.h .dep-stamp subdir
 
@@ -40,8 +40,8 @@ depend: sysdep/paths.h .dir-stamp
 	set -e ; for a in $(static-dirs) $(client-dirs) ; do $(MAKE) -C $$a -f $(srcdir_abs)/$$a/Makefile $@ ; done
 
 subdir: sysdep/paths.h .dir-stamp .dep-stamp
-	set -e ; for a in $(dynamic-dirs) ; do $(MAKE) -C $$a $@ ; done
-	set -e ; for a in $(static-dirs) $(client-dirs) ; do $(MAKE) -C $$a -f $(srcdir_abs)/$$a/Makefile $@ ; done
+	set -e ; for a in $(dynamic-dirs) ; do $(MAKE) -C $$a CFLAGS+=-fPIC $@ ; done
+	set -e ; for a in $(static-dirs) $(client-dirs) ; do $(MAKE) -C $$a -f $(srcdir_abs)/$$a/Makefile CFLAGS+=-fPIC $@ ; done
 
 $(exedir)/bird: $(bird-dep)
 	@echo LD $(LDFLAGS) -o $@ $^ $(LIBS)
@@ -55,9 +55,9 @@ $(exedir)/birdcl: $(birdcl-dep)
 	@echo LD $(LDFLAGS) -o $@ $^ $(LIBS)
 	@$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-$(exedir)/qcli: $(qcli-dep)
+$(exedir)/qcli.so: $(qcli-dep)
 	@echo LD $(LDFLAGS) -o $@ $^ $(LIBS)
-	@$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+	@$(CC) -shared -fPIC $(LDFLAGS) -Wl,--version-script=$(srcdir_abs)/proto/query/qcli.version -o $@ $^ $(LIBS)
 
 .dir-stamp: sysdep/paths.h
 	mkdir -p $(static-dirs) $(client-dirs) $(doc-dirs)
