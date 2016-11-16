@@ -40,6 +40,7 @@ struct query_free_block {
 struct query_net_hash_node {
   node n;
   struct query_net_hash_node *next;
+  bird_clock_t born;
   int pxlen;
   ip_addr prefix;
 };

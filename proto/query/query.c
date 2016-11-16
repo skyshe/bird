@@ -289,14 +289,17 @@ query_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new UNUSED, rt
   if (!qnhn) {
     qnhn = sl_alloc(p->qnh_slab);
     memset(qnhn, 0, sizeof(struct query_net_hash_node));
-    *qnhn = (struct query_net_hash_node) { .pxlen = n->n.pxlen, .prefix = n->n.prefix };
+    *qnhn = (struct query_net_hash_node) { .pxlen = n->n.pxlen, .prefix = n->n.prefix, .born = now };
     HASH_INSERT2(p->qnh, QNH, P->pool, qnhn);
   }
 
-  if (qnhn->n.next)
-    rem_node(&(qnhn->n));
+  if (qnhn->born + 10 > now) {
+    if (qnhn->n.next)
+      rem_node(&(qnhn->n));
 
-  add_tail(&(p->qnhq), &(qnhn->n));
+    add_tail(&(p->qnhq), &(qnhn->n));
+  }
+
   ev_schedule(p->qnh_event);
 }
 
