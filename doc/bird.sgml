@@ -3302,6 +3302,69 @@ protocol pipe {				# The Pipe
 </code>
 
 
+<sect>Query
+<label id="query">
+
+<sect1>Introduction
+<label id="query-intro">
+
+<p>The Query protocol serves as a simple 'show route' query cache. When processing
+the 'show route' query on client socket, Bird is blocked for other tasks. To allow
+high-speed queries on route tables (for whatever reasons), this protocol runs
+'show route <m/prefix/ all' for every prefix exported to the protocol, deflates
+the result and stores it in an trie-like structure in shared memory stored in 512B
+blocks.
+
+<p>The <file>libbird-query.so</file> serves as a standalone read-only client for the shared memory.
+
+<p>It is recommended to start the Query protocol after all the other protocols are fed
+and the routing table has settled down.
+
+<sect1>Configuration
+<label id="query-config">
+
+<p><descrip>
+	<tag><label id='query-shm'>shm <m/name/</tag>
+	Sets the shared memory name. On Linux, you may usually find a file
+	bearing this name in <file>/dev/shm/</file>.
+	<tag><label id='query-size'>size <m/number/</tag>
+	Sets size of the shared memory as a number of 512B blocks.
+</descrip>
+
+<sect1>Library
+<label id="query-library">
+
+<p>The library consists of <file>proto/query/bird-query.h</file> and <file>libbird-query.so</file>
+where 4 functions are provided.
+
+<p><descrip>
+	<tag>struct bird_query_handle *bird_query_init(const char *name);</tag>
+	Opens the shared memory block (you should provide the same name as configured in Bird server),
+	mmap's it and returns a handle for the other functions to use.
+
+	<tag>char *bird_query_find(struct bird_query_handle *qh, const char *network);</tag>
+	The <m/network/ should be a NUL-terminated string of an IP prefix in the short notation, e.g. 192.168.0.0/22.
+	Returns a NUL-terminated string containing the output for 'show route all' for that destination.
+	Returns an empty string (pointer to NUL) if no route was found.
+	Returns NULL on network parse error.
+	The returned pointer should be free()-ed after use unless NULL.
+
+	<tag>char *bird_query_find_all(struct bird_query_handle *qh, const char *ip);</tag>
+	The <m/ip/ should be a NUL-terminated string of an IP address.
+	Returns a NUL-terminated string containing the concatenated output for 'show route all'
+	combined for all prefices the given IP is contained in.
+	Returns NULL on ip parse error.
+	The returned pointer should be free()-ed after use unless NULL.
+
+	<tag>void bird_query_cleanup(struct bird_query_handle *qh);</tag>
+	Unmaps the shared memory, frees the query handle and all the underlying
+	structures. Should be always called unless your program is ending
+	directly afterwards.
+</descrip>
+
+<p>There is also an example program <file>proto/query/client.c</file> provided.
+
+
 <sect>RAdv
 <label id="radv">
 
