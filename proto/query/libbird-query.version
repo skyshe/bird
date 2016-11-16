@@ -1,0 +1,9 @@
+BIRD_QUERY {
+  global:
+    bird_query_init;
+    bird_query_cleanup;
+    bird_query_find;
+    bird_query_find_all;
+
+  local: *;
+};

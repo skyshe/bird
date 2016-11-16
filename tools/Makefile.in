@@ -7,9 +7,9 @@ include Rules
 
 .PHONY: all daemon birdc birdcl subdir depend clean distclean tags docs userdocs progdocs
 
-all: sysdep/paths.h .dep-stamp subdir daemon birdcl @CLIENT@ @QCLI@
+all: sysdep/paths.h .dep-stamp subdir daemon birdcl @CLIENT@ @LIBQUERY@
 
-qcli.so: $(exedir)/qcli.so
+libbird-query.so: $(exedir)/libbird-query.so
 
 daemon: $(exedir)/bird
 
@@ -29,9 +29,9 @@ birdcl-dep := client/birdcl.o client/all.o lib/birdlib.a
 
 $(birdcl-dep): sysdep/paths.h .dep-stamp subdir
 
-qcli-dep := proto/query/lib.o lib/bitops.o lib/ip.o lib/printf.o
+libquery-dep := proto/query/lib.o lib/bitops.o lib/ip.o lib/printf.o
 
-$(qcli-dep): sysdep/paths.h .dep-stamp subdir
+$(libquery-dep): sysdep/paths.h .dep-stamp subdir
 
 export client := @CLIENT@
 
@@ -40,8 +40,8 @@ depend: sysdep/paths.h .dir-stamp
 	set -e ; for a in $(static-dirs) $(client-dirs) ; do $(MAKE) -C $$a -f $(srcdir_abs)/$$a/Makefile $@ ; done
 
 subdir: sysdep/paths.h .dir-stamp .dep-stamp
-	set -e ; for a in $(dynamic-dirs) ; do $(MAKE) -C $$a CFLAGS+=-fPIC $@ ; done
-	set -e ; for a in $(static-dirs) $(client-dirs) ; do $(MAKE) -C $$a -f $(srcdir_abs)/$$a/Makefile CFLAGS+=-fPIC $@ ; done
+	set -e ; for a in $(dynamic-dirs) ; do $(MAKE) -C $$a $@ ; done
+	set -e ; for a in $(static-dirs) $(client-dirs) ; do $(MAKE) -C $$a -f $(srcdir_abs)/$$a/Makefile $@ ; done
 
 $(exedir)/bird: $(bird-dep)
 	@echo LD $(LDFLAGS) -o $@ $^ $(LIBS)
@@ -55,9 +55,9 @@ $(exedir)/birdcl: $(birdcl-dep)
 	@echo LD $(LDFLAGS) -o $@ $^ $(LIBS)
 	@$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-$(exedir)/qcli.so: $(qcli-dep)
+$(exedir)/libbird-query.so: $(libquery-dep)
 	@echo LD $(LDFLAGS) -o $@ $^ $(LIBS)
-	@$(CC) -shared -fPIC $(LDFLAGS) -Wl,--version-script=$(srcdir_abs)/proto/query/qcli.version -o $@ $^ $(LIBS)
+	@$(CC) -shared -fPIC $(LDFLAGS) -Wl,--version-script=$(srcdir_abs)/proto/query/libbird-query.version -o $@ $^ $(LIBS)
 
 .dir-stamp: sysdep/paths.h
 	mkdir -p $(static-dirs) $(client-dirs) $(doc-dirs)

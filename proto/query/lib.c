@@ -1,6 +1,12 @@
 #include "nest/bird.h"
-#include "proto/query/lib.h"
+#include "proto/query/bird-query.h"
 #include "proto/query/data.h"
+
+#define query_handle	bird_query_handle
+#define query_init	bird_query_init
+#define query_find	bird_query_find
+#define query_find_all	bird_query_find_all
+#define query_cleanup	bird_query_cleanup
 
 #include <fcntl.h>
 #include <stdio.h>

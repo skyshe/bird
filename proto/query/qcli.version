@@ -1,4 +1,0 @@
-QCLI {
-  global: query_init; query_cleanup; query_find; query_find_all;
-  local: *;
-};
