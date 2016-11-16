@@ -263,7 +263,7 @@ query_update_db(void *data)
 	qdd->next = 0;
       }
     } else
-      query_delete(p, qnhn->pxlen, qnhn->prefix);
+      query_delete(p, qnhn->prefix, qnhn->pxlen);
     rem_node(&(qnhn->n));
     HASH_REMOVE(p->qnh, QNH, qnhn);
     sl_free(p->qnh_slab, qnhn);
