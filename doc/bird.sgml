@@ -3360,6 +3360,9 @@ where 4 functions are provided.
 	Unmaps the shared memory, frees the query handle and all the underlying
 	structures. Should be always called unless your program is ending
 	directly afterwards.
+
+	<tag>extern char *bird_query_error;</tag>
+	When any function fails, it returns NULL and this pointer is set to an error message.
 </descrip>
 
 <p>There is also an example program <file>proto/query/client.c</file> provided.

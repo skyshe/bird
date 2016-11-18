@@ -159,6 +159,8 @@ void bug(const char *msg, ...) NORET;
 
 void debug(const char *msg, ...);		/* Printf to debug output */
 
+#define STR(x) #x
+
 /* Debugging */
 
 #if defined(LOCAL_DEBUG) || defined(GLOBAL_DEBUG)

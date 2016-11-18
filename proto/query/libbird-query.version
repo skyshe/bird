@@ -1,5 +1,6 @@
 BIRD_QUERY {
   global:
+    bird_query_error;
     bird_query_init;
     bird_query_cleanup;
     bird_query_find;

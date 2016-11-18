@@ -21,6 +21,10 @@ int main(int argc, char **argv) {
   }
 
   struct bird_query_handle *qh = bird_query_init(argv[1]);
+  if (!qh) {
+    printf("Failed bird query init: %s\n", bird_query_error);
+    exit(1);
+  }
 
   if (argc == 2) {
     char buf[256];
@@ -29,22 +33,22 @@ int main(int argc, char **argv) {
       while (*x != '\n')
 	x++;
       (*x) = 0;
-      const char *q = bird_query_find_all(qh, buf);
+      char *q = bird_query_find_all(qh, buf);
       if (q) {
 	printf("%s\n", q);
 	free((void *)q);
       } else {
-	printf("Parse error.\n");
+	printf("FInd error: %s\n", bird_query_error);
       }
     }
   } else {
     for (int i=2; i<argc; i++) {
-      const char *q = bird_query_find_all(qh, argv[i]);
+      char *q = bird_query_find_all(qh, argv[i]);
       if (q) {
 	printf("%s\n", q);
 	free((void *)q);
       } else {
-	printf("Parse error.\n");
+	printf("Find error: %s\n", bird_query_error);
       }
     }
   }

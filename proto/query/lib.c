@@ -2,12 +2,14 @@
 #include "proto/query/bird-query.h"
 #include "proto/query/data.h"
 
+#define query_error	bird_query_error
 #define query_handle	bird_query_handle
 #define query_init	bird_query_init
 #define query_find	bird_query_find
 #define query_find_all	bird_query_find_all
 #define query_cleanup	bird_query_cleanup
 
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +23,17 @@ struct query_handle {
   int fd;
 };
 
+char *query_error = NULL;
+
 struct query_handle *query_init(const char *name) {
+  if (!query_error)
+    query_error = malloc(1024);
+
+  if (!query_error) {
+    query_error = "malloc for " STR(query_error) " failed";
+    return NULL;
+  }
+
   struct query_handle *qh = malloc(sizeof(struct query_handle));
   if (!qh) {
     perror("malloc");
@@ -34,7 +46,7 @@ struct query_handle *query_init(const char *name) {
   qh->fd = shm_open(name, O_RDWR, 0);
   if (qh->fd == -1) {
     free(qh);
-    perror("open");
+    snprintf(query_error, 1024, "shm_open: %m (%d)", errno);
     return NULL;
   }
 
@@ -42,7 +54,7 @@ struct query_handle *query_init(const char *name) {
   if (fstat(qh->fd, &st)) {
     close(qh->fd);
     free(qh);
-    perror("fstat");
+    snprintf(query_error, 1024, "fstat: %m (%d)", errno);
     return NULL;
   }
 
@@ -52,7 +64,7 @@ struct query_handle *query_init(const char *name) {
   if (qh->qn == MAP_FAILED) {
     close(qh->fd);
     free(qh);
-    perror("mmap");
+    snprintf(query_error, 1024, "mmap: %m (%d)", errno);
     return NULL;
   }
 
@@ -92,7 +104,7 @@ query_find_internal(struct query_handle *qh, char *buf, int *pos, int *total, ip
     }
 
     if (is != Z_OK) {
-      fprintf(stderr, "Error inflating query data: %s\n", qh->zs.msg);
+      snprintf(query_error, 1024, "Error inflating query data: %s\n", qh->zs.msg);
       inflateReset(&(qh->zs));
       return NULL;
     }
@@ -120,19 +132,27 @@ query_find_internal(struct query_handle *qh, char *buf, int *pos, int *total, ip
   }
 }
 
-const char *query_find(struct query_handle *qh, const char *network) {
+char *query_find(struct query_handle *qh, const char *network) {
   const char *slash = strchr(network, '/');
+  if (!slash) {
+    snprintf(query_error, 1024, "parse error: slash not found");
+    return NULL;
+  }
 
   int pxlen;
-  if (sscanf(slash+1, "%u", &pxlen) != 1)
+  if (sscanf(slash+1, "%u", &pxlen) != 1) {
+    snprintf(query_error, 1024, "parse error: bad prefix length");
     return NULL;
+  }
 
   ip_addr prefix;
   char ipabuf[256];
   memcpy(ipabuf, network, slash-network);
   ipabuf[slash-network] = 0;
-  if (!ipa_pton(ipabuf, &prefix))
+  if (!ipa_pton(ipabuf, &prefix)) {
+    snprintf(query_error, 1024, "parse error: bad IP address");
     return NULL;
+  }
 
   int outsize = 1024;
   int pos = 0;
@@ -142,14 +162,17 @@ const char *query_find(struct query_handle *qh, const char *network) {
   out = query_find_internal(qh, out, &pos, &outsize, prefix, pxlen);
   pthread_rwlock_unlock(&qh->qn->h.lock);
 
-  out[pos] = 0;
+  if (out)
+    out[pos] = 0;
   return out;
 }
 
-const char *query_find_all(struct query_handle *qh, const char *ip) {
+char *query_find_all(struct query_handle *qh, const char *ip) {
   ip_addr prefix;
-  if (!ipa_pton(ip, &prefix))
+  if (!ipa_pton(ip, &prefix)) {
+    snprintf(query_error, 1024, "parse error: bad IP address");
     return NULL;
+  }
 
   int outsize = 1024;
   int pos = 0;
@@ -160,7 +183,8 @@ const char *query_find_all(struct query_handle *qh, const char *ip) {
     out = query_find_internal(qh, out, &pos, &outsize, prefix, pxlen);
   pthread_rwlock_unlock(&qh->qn->h.lock);
 
-  out[pos] = 0;
+  if (out)
+    out[pos] = 0;
   return out;
 }
 
