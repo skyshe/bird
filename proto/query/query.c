@@ -184,7 +184,7 @@ query_update_db(void *data)
   while (!EMPTY_LIST(p->qnhq)) {
     struct query_net_hash_node *qnhn = HEAD(p->qnhq);
     net *n = net_find(p->p.table, qnhn->prefix, qnhn->pxlen);
-    if (n && n->routes) {
+    if (n && rte_is_valid(n->routes)) {
       struct rt_show_data rsd = {
 	.prefix = qnhn->prefix,
 	.pxlen = qnhn->pxlen,
@@ -311,8 +311,14 @@ query_shutdown(struct proto *P)
 
   deflateEnd(&p->zs);
 
-  munmap(p->mem, c->size * sizeof(query_node));
-  shm_unlink(c->shm);
+  if (p->mem)
+    munmap(p->mem, c->size * sizeof(query_node));
+
+  if (p->fd != -1) {
+    if (close(p->fd) < 0)
+      log(L_ERR "%s: Couldn't close fd (%d): %M", P->name, p->fd);
+    shm_unlink(c->shm);
+  }
 
   return PS_DOWN;
 }
@@ -382,10 +388,10 @@ query_init(struct proto_config *c)
   struct proto *P = proto_new(c, sizeof(struct query_proto));
   struct query_proto *p = (void *) P;
 
-  p->fd = -1;
-
   P->accept_ra_types = RA_ANY;
   P->rt_notify = query_rt_notify;
+
+  p->fd = -1;
 
   return P;
 }
