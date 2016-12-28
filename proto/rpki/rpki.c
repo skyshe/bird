@@ -116,7 +116,7 @@ static void rpki_stop_expire_timer_event(struct rpki_cache *cache);
  */
 
 void
-rpki_table_add_roa(struct rpki_cache *cache, struct channel *channel, const net_addr_union *pfxr)
+rpki_table_add_roa(struct rpki_cache *cache, struct channel *channel, const net_addr *pfxr)
 {
   struct rpki_proto *p = cache->p;
 
@@ -132,14 +132,14 @@ rpki_table_add_roa(struct rpki_cache *cache, struct channel *channel, const net_
 
   e->pflags = 0;
 
-  rte_update2(channel, &pfxr->n, e, a0.src);
+  rte_update2(channel, pfxr, e, a0.src);
 }
 
 void
-rpki_table_remove_roa(struct rpki_cache *cache, struct channel *channel, const net_addr_union *pfxr)
+rpki_table_remove_roa(struct rpki_cache *cache, struct channel *channel, const net_addr *pfxr)
 {
   struct rpki_proto *p = cache->p;
-  rte_update2(channel, &pfxr->n, NULL, p->p.main_source);
+  rte_update2(channel, pfxr, NULL, p->p.main_source);
 }
 
 

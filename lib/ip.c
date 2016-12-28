@@ -107,7 +107,7 @@ ip4_classify(ip4_addr ad)
 }
 
 int
-ip6_classify(ip6_addr *a)
+ip6_classify(const ip6_addr *a)
 {
   u32 x = a->addr[0];
 

@@ -230,7 +230,7 @@ int ip6_compare(ip6_addr a, ip6_addr b);
 #define SCOPE_UNDEFINED		5
 
 int ip4_classify(ip4_addr ad);
-int ip6_classify(ip6_addr *a);
+int ip6_classify(const ip6_addr *a);
 
 static inline int ip6_is_link_local(ip6_addr a)
 { return (_I0(a) & 0xffc00000) == 0xfe800000; }

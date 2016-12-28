@@ -37,98 +37,96 @@
 #define NB_IP		(NB_IP4 | NB_IP6)
 #define NB_ANY		0xffffffff
 
+#define NET_DO_ALL \
+  NET_DO_FIXLEN \
+  NET_DO_VARLEN
 
-typedef struct net_addr {
-  u8 type;
-  u8 pxlen;
-  u16 length;
-  u8 data[16];
-  u64 align[0];
-} net_addr;
+#define NET_DO_FIXLEN \
+  NET_DO(ip4,IP4) \
+  NET_DO(ip6,IP6) \
+  NET_DO(vpn4,VPN4) \
+  NET_DO(vpn6,VPN6) \
+  NET_DO(roa4,ROA4) \
+  NET_DO(roa6,ROA6) \
+  NET_DO(mpls,MPLS)
+
+#define NET_DO_VARLEN \
+  NET_DO(flow4,FLOW4) \
+  NET_DO(flow6,FLOW6)
+
+#define NET_CASE_ALL(v) \
+  case NET_IP##v: \
+  case NET_VPN##v: \
+  case NET_ROA##v: \
+  case NET_FLOW##v
+
+#define NET_ADDR_COMMON \
+  u8 type; \
+  u8 pxlen; \
+  u16 length
 
 typedef struct net_addr_ip4 {
-  u8 type;
-  u8 pxlen;
-  u16 length;
+  NET_ADDR_COMMON;
   ip4_addr prefix;
 } net_addr_ip4;
 
 typedef struct net_addr_ip6 {
-  u8 type;
-  u8 pxlen;
-  u16 length;
+  NET_ADDR_COMMON;
   ip6_addr prefix;
 } net_addr_ip6;
 
 typedef struct net_addr_vpn4 {
-  u8 type;
-  u8 pxlen;
-  u16 length;
+  NET_ADDR_COMMON;
   ip4_addr prefix;
   u64 rd;
 } net_addr_vpn4;
 
 typedef struct net_addr_vpn6 {
-  u8 type;
-  u8 pxlen;
-  u16 length;
+  NET_ADDR_COMMON;
   ip6_addr prefix;
   u64 rd;
 } net_addr_vpn6;
 
 typedef struct net_addr_roa4 {
-  u8 type;
-  u8 pxlen;
-  u16 length;
+  NET_ADDR_COMMON;
   ip4_addr prefix;
   u32 max_pxlen;
   u32 asn;
 } net_addr_roa4;
 
 typedef struct net_addr_roa6 {
-  u8 type;
-  u8 pxlen;
-  u16 length;
+  NET_ADDR_COMMON;
   ip6_addr prefix;
   u32 max_pxlen;
   u32 asn;
 } net_addr_roa6;
 
 typedef struct net_addr_flow4 {
-  u8 type;
-  u8 pxlen;
-  u16 length;
+  NET_ADDR_COMMON;
   ip4_addr prefix;
   byte data[0];
 } net_addr_flow4;
 
 typedef struct net_addr_flow6 {
-  u8 type;
-  u8 pxlen;
-  u16 length;
+  NET_ADDR_COMMON;
   ip6_addr prefix;
   byte data[0];
 } net_addr_flow6;
 
 typedef struct net_addr_mpls {
-  u8 type;
-  u8 pxlen;
-  u16 length;
+  NET_ADDR_COMMON;
   u32 label;
 } net_addr_mpls;
 
-typedef union net_addr_union {
-  net_addr n;
-  net_addr_ip4 ip4;
-  net_addr_ip6 ip6;
-  net_addr_vpn4 vpn4;
-  net_addr_vpn6 vpn6;
-  net_addr_roa4 roa4;
-  net_addr_roa6 roa6;
-  net_addr_flow4 flow4;
-  net_addr_flow6 flow6;
-  net_addr_mpls mpls;
-} net_addr_union;
+typedef union net_addr {
+  struct {
+    NET_ADDR_COMMON;
+  };
+
+#define NET_DO(mi,mj) net_addr_##mi mi;
+  NET_DO_ALL
+#undef NET_DO
+} net_addr;
 
 
 extern const char * const net_label[];
@@ -241,16 +239,10 @@ static inline ip_addr net_prefix(const net_addr *a)
 {
   switch (a->type)
   {
-  case NET_IP4:
-  case NET_VPN4:
-  case NET_ROA4:
-  case NET_FLOW4:
+NET_CASE_ALL(4):
     return ipa_from_ip4(net4_prefix(a));
 
-  case NET_IP6:
-  case NET_VPN6:
-  case NET_ROA6:
-  case NET_FLOW6:
+NET_CASE_ALL(6):
     return ipa_from_ip6(net6_prefix(a));
 
   case NET_MPLS:
@@ -278,33 +270,33 @@ static inline uint net_pxlen(const net_addr *a)
 
 ip_addr net_pxmask(const net_addr *a);
 
+#define NET_DO(mi,mj) \
+  static inline int net_equal_##mi(const net_addr_##mi *a, const net_addr_##mi *b) \
+  { return !memcmp(a, b, sizeof(net_addr_##mi)); }
+NET_DO_FIXLEN
+#undef NET_DO
+
+#define NET_DO(mi,mj) \
+static inline int net_equal_##mi(const net_addr_##mi *a, const net_addr_##mi *b) \
+{ return (a->length == b->length) && !memcmp(a, b, a->length); }
+NET_DO_VARLEN
+#undef NET_DO
 
 static inline int net_equal(const net_addr *a, const net_addr *b)
-{ return (a->length == b->length) && !memcmp(a, b, a->length); }
+{
+  if (a->type != b->type)
+    return 0;
 
-static inline int net_equal_ip4(const net_addr_ip4 *a, const net_addr_ip4 *b)
-{ return !memcmp(a, b, sizeof(net_addr_ip4)); }
-
-static inline int net_equal_ip6(const net_addr_ip6 *a, const net_addr_ip6 *b)
-{ return !memcmp(a, b, sizeof(net_addr_ip6)); }
-
-static inline int net_equal_vpn4(const net_addr_vpn4 *a, const net_addr_vpn4 *b)
-{ return !memcmp(a, b, sizeof(net_addr_vpn4)); }
-
-static inline int net_equal_vpn6(const net_addr_vpn6 *a, const net_addr_vpn6 *b)
-{ return !memcmp(a, b, sizeof(net_addr_vpn6)); }
-
-static inline int net_equal_roa4(const net_addr_roa4 *a, const net_addr_roa4 *b)
-{ return !memcmp(a, b, sizeof(net_addr_roa4)); }
-
-static inline int net_equal_roa6(const net_addr_roa6 *a, const net_addr_roa6 *b)
-{ return !memcmp(a, b, sizeof(net_addr_roa6)); }
-
-static inline int net_equal_flow4(const net_addr_flow4 *a, const net_addr_flow4 *b)
-{ return net_equal((const net_addr *) a, (const net_addr *) b); }
-
-static inline int net_equal_flow6(const net_addr_flow6 *a, const net_addr_flow6 *b)
-{ return net_equal((const net_addr *) a, (const net_addr *) b); }
+  switch (a->type)
+  {
+#define NET_DO(mi,mj) \
+    case NET_##mj: \
+      return net_equal_##mi((const net_addr_##mi *) a, (const net_addr_##mi *) b);
+      NET_DO_ALL
+#undef NET_DO
+  }
+  return 0;
+}
 
 
 static inline int net_equal_prefix_roa4(const net_addr_roa4 *a, const net_addr_roa4 *b)
@@ -312,9 +304,6 @@ static inline int net_equal_prefix_roa4(const net_addr_roa4 *a, const net_addr_r
 
 static inline int net_equal_prefix_roa6(const net_addr_roa6 *a, const net_addr_roa6 *b)
 { return ip6_equal(a->prefix, b->prefix) && (a->pxlen == b->pxlen); }
-
-static inline int net_equal_mpls(const net_addr_mpls *a, const net_addr_mpls *b)
-{ return !memcmp(a, b, sizeof(net_addr_mpls)); }
 
 static inline int net_zero_ip4(const net_addr_ip4 *a)
 { return !a->pxlen && ip4_zero(a->prefix); }
@@ -374,35 +363,30 @@ static inline int net_compare_mpls(const net_addr_mpls *a, const net_addr_mpls *
 int net_compare(const net_addr *a, const net_addr *b);
 
 
+#define NET_DO(mi,mj) \
+  static inline void net_copy_##mi(net_addr_##mi *dst, const net_addr_##mi *src) \
+  { memcpy(dst, src, sizeof(net_addr_##mi)); }
+NET_DO_FIXLEN
+#undef NET_DO
+
+#define NET_DO(mi,mj) \
+  static inline void net_copy_##mi(net_addr_##mi *dst, const net_addr_##mi *src) \
+  { memcpy(dst, src, src->length); }
+NET_DO_VARLEN
+#undef NET_DO
+
 static inline void net_copy(net_addr *dst, const net_addr *src)
-{ memcpy(dst, src, src->length); }
+{
+  switch (src->type)
+  {
+#define NET_DO(mi,mj) \
+    case NET_##mj: \
+      return net_copy_##mi((net_addr_##mi *) dst, (const net_addr_##mi *) src);
+      NET_DO_ALL
+#undef NET_DO
+  }
+}
 
-static inline void net_copy_ip4(net_addr_ip4 *dst, const net_addr_ip4 *src)
-{ memcpy(dst, src, sizeof(net_addr_ip4)); }
-
-static inline void net_copy_ip6(net_addr_ip6 *dst, const net_addr_ip6 *src)
-{ memcpy(dst, src, sizeof(net_addr_ip6)); }
-
-static inline void net_copy_vpn4(net_addr_vpn4 *dst, const net_addr_vpn4 *src)
-{ memcpy(dst, src, sizeof(net_addr_vpn4)); }
-
-static inline void net_copy_vpn6(net_addr_vpn6 *dst, const net_addr_vpn6 *src)
-{ memcpy(dst, src, sizeof(net_addr_vpn6)); }
-
-static inline void net_copy_roa4(net_addr_roa4 *dst, const net_addr_roa4 *src)
-{ memcpy(dst, src, sizeof(net_addr_roa4)); }
-
-static inline void net_copy_roa6(net_addr_roa6 *dst, const net_addr_roa6 *src)
-{ memcpy(dst, src, sizeof(net_addr_roa6)); }
-
-static inline void net_copy_flow4(net_addr_flow4 *dst, const net_addr_flow4 *src)
-{ memcpy(dst, src, src->length); }
-
-static inline void net_copy_flow6(net_addr_flow6 *dst, const net_addr_flow6 *src)
-{ memcpy(dst, src, src->length); }
-
-static inline void net_copy_mpls(net_addr_mpls *dst, const net_addr_mpls *src)
-{ memcpy(dst, src, sizeof(net_addr_mpls)); }
 
 static inline u32 net_hash_ip4(const net_addr_ip4 *n)
 { return ip4_hash(n->prefix) ^ ((u32) n->pxlen << 26); }

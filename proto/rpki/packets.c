@@ -691,21 +691,16 @@ rpki_handle_cache_response_pdu(struct rpki_cache *cache, const struct pdu_cache_
 }
 
 /**
- * rpki_prefix_pdu_2_net_addr - convert IPv4/IPv6 Prefix PDU into net_addr_union
+ * rpki_prefix_pdu_2_net_addr - convert IPv4/IPv6 Prefix PDU into net_addr
  * @pdu: host byte order IPv4/IPv6 Prefix PDU
- * @n: allocated net_addr_union for save ROA
+ * @n: allocated net_addr for save ROA
  *
  * This function reads ROA data from IPv4/IPv6 Prefix PDU and
  * write them into net_addr_roa4 or net_addr_roa6 data structure.
  */
-static net_addr_union *
-rpki_prefix_pdu_2_net_addr(const struct pdu_header *pdu, net_addr_union *n)
+static net_addr *
+rpki_prefix_pdu_2_net_addr(const struct pdu_header *pdu, net_addr *n)
 {
-  /*
-   * Note that sizeof(net_addr_roa6) > sizeof(net_addr)
-   * and thence we must use net_addr_union and not only net_addr
-   */
-
   if (pdu->type == IPV4_PREFIX)
   {
     const struct pdu_ipv4 *ipv4 = (void *) pdu;
@@ -736,7 +731,7 @@ rpki_handle_prefix_pdu(struct rpki_cache *cache, const struct pdu_header *pdu)
   const enum pdu_type type = pdu->type;
   ASSERT(type == IPV4_PREFIX || type == IPV6_PREFIX);
 
-  net_addr_union addr = {};
+  net_addr addr = {};
   rpki_prefix_pdu_2_net_addr(pdu, &addr);
 
   struct channel *channel = NULL;
