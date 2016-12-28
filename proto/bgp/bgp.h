@@ -29,8 +29,16 @@ struct eattr;
 #define BGP_AFI_IPV4		1
 #define BGP_AFI_IPV6		2
 
-#define BGP_SAFI_UNICAST	1
-#define BGP_SAFI_MULTICAST	2
+#define BGP_SAFI_UNICAST		1
+#define BGP_SAFI_MULTICAST		2
+#define BGP_SAFI_UNICAST_MPLS		4
+#define BGP_SAFI_UNICAST_VPN_MPLS	128
+#define BGP_SAFI_MULTICAST_VPN_MPLS	129
+
+#define BGP_AF_IS_MPLS(A) ( \
+  (BGP_SAFI(A) == BGP_SAFI_UNICAST_MPLS) || \
+  (BGP_SAFI(A) == BGP_SAFI_UNICAST_VPN_MPLS) || \
+  (BGP_SAFI(A) == BGP_SAFI_MULTICAST_VPN_MPLS) )
 
 /* Internal AF codes */
 
@@ -42,7 +50,12 @@ struct eattr;
 #define BGP_AF_IPV6		BGP_AF( BGP_AFI_IPV6, BGP_SAFI_UNICAST )
 #define BGP_AF_IPV4_MC		BGP_AF( BGP_AFI_IPV4, BGP_SAFI_MULTICAST )
 #define BGP_AF_IPV6_MC		BGP_AF( BGP_AFI_IPV6, BGP_SAFI_MULTICAST )
-
+#define BGP_AF_IPV4_MPLS	BGP_AF( BGP_AFI_IPV4, BGP_SAFI_UNICAST_MPLS )
+#define BGP_AF_IPV6_MPLS	BGP_AF( BGP_AFI_IPV6, BGP_SAFI_UNICAST_MPLS )
+#define BGP_AF_VPN4_MPLS	BGP_AF( BGP_AFI_IPV4, BGP_SAFI_UNICAST_VPN_MPLS )
+#define BGP_AF_VPN6_MPLS	BGP_AF( BGP_AFI_IPV6, BGP_SAFI_UNICAST_VPN_MPLS )
+#define BGP_AF_VPN4_MC_MPLS	BGP_AF( BGP_AFI_IPV4, BGP_SAFI_MULTICAST_VPN_MPLS )
+#define BGP_AF_VPN6_MC_MPLS	BGP_AF( BGP_AFI_IPV6, BGP_SAFI_MULTICAST_VPN_MPLS )
 
 struct bgp_write_state;
 struct bgp_parse_state;
@@ -300,6 +313,8 @@ struct bgp_export_state {
 
   u32 attrs_seen[1];
   uint err_withdraw;
+
+  net_addr *n;
 };
 
 struct bgp_write_state {
@@ -530,6 +545,9 @@ void bgp_update_next_hop(struct bgp_export_state *s, eattr *a, ea_list **to);
 #define BA_AS4_PATH             0x11	/* RFC 6793 */
 #define BA_AS4_AGGREGATOR       0x12	/* RFC 6793 */
 #define BA_LARGE_COMMUNITY	0x20	/* [draft-ietf-idr-large-community] */
+
+/* Bird's private internal BGP attributes */
+#define BA__MPLS_LABEL_STACK	0xfe	/* MPLS label stack transfer attribute */
 
 /* BGP connection states */
 

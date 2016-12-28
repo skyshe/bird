@@ -11,6 +11,7 @@
 #define _BIRD_NET_H_
 
 #include "lib/ip.h"
+#include "lib/hash.h"
 
 
 #define NET_IP4		1
@@ -22,7 +23,11 @@
 #define NET_FLOW4	7
 #define NET_FLOW6	8
 #define NET_MPLS	9
-#define NET_MAX		10
+#define NET_IP4_MPLS	10
+#define NET_IP6_MPLS	11
+#define NET_VPN4_MPLS	12
+#define NET_VPN6_MPLS	13
+#define NET_MAX		14
 
 #define NB_IP4		(1 << NET_IP4)
 #define NB_IP6		(1 << NET_IP6)
@@ -35,6 +40,7 @@
 #define NB_MPLS		(1 << NET_MPLS)
 
 #define NB_IP		(NB_IP4 | NB_IP6)
+#define NB_VPN		(NB_VPN4 | NB_VPN6)
 #define NB_ANY		0xffffffff
 
 #define NET_DO_ALL \
@@ -52,13 +58,19 @@
 
 #define NET_DO_VARLEN \
   NET_DO(flow4,FLOW4) \
-  NET_DO(flow6,FLOW6)
+  NET_DO(flow6,FLOW6) \
+  NET_DO(ip4_mpls,IP4_MPLS) \
+  NET_DO(ip6_mpls,IP6_MPLS) \
+  NET_DO(vpn4_mpls,VPN4_MPLS) \
+  NET_DO(vpn6_mpls,VPN6_MPLS) \
 
 #define NET_CASE_ALL(v) \
   case NET_IP##v: \
   case NET_VPN##v: \
   case NET_ROA##v: \
-  case NET_FLOW##v
+  case NET_FLOW##v: \
+  case NET_IP##v##_MPLS: \
+  case NET_VPN##v##_MPLS
 
 #define NET_ADDR_COMMON \
   u8 type; \
@@ -117,6 +129,27 @@ typedef struct net_addr_mpls {
   NET_ADDR_COMMON;
   u32 label;
 } net_addr_mpls;
+
+#define NET_DO(f) \
+typedef union net_addr_##f##_mpls { \
+  struct { \
+    NET_ADDR_COMMON; \
+  }; \
+  struct { \
+    net_addr_##f addr; \
+    u32 label[0]; \
+  }; \
+} net_addr_##f##_mpls
+
+NET_DO(ip4);
+NET_DO(ip6);
+NET_DO(vpn4);
+NET_DO(vpn6);
+
+#undef NET_DO
+
+#define NET_ADDR_MPLS_LABEL_STACK_LEN(n) (((n)->length - sizeof((n)->addr))/sizeof(u32))
+
 
 typedef union net_addr {
   struct {
@@ -214,6 +247,26 @@ static inline void net_fill_flow6(net_addr *a, ip6_addr prefix, uint pxlen, byte
   net_addr_flow6 *f = (void *) a;
   *f = NET_ADDR_FLOW6(prefix, pxlen, dlen);
   memcpy(f->data, data, dlen);
+}
+
+static inline void net_add_mpls_label_stack(net_addr *a, uint len, u32 *label)
+{
+  switch (a->type) {
+#define NET_DO(mi,mj) \
+    case NET_##mj: \
+      a->type = NET_##mj##_MPLS; \
+      a->length = sizeof(net_addr_##mi##_mpls) + len * 4; \
+      for (uint i=0; i<len; i++) \
+	a->mi##_mpls.label[i] = label[i]; \
+      break;
+    NET_DO(ip4,IP4)
+    NET_DO(ip6,IP6)
+    NET_DO(vpn4,VPN4)
+    NET_DO(vpn6,VPN6)
+#undef NET_DO
+    default:
+      bug("Adding mpls stack to net_addr_%s not implemented.", net_label[a->type]);
+  }
 }
 
 static inline int net_val_match(u8 type, u32 mask)
@@ -360,6 +413,15 @@ static inline int net_compare_flow6(const net_addr_flow6 *a, const net_addr_flow
 static inline int net_compare_mpls(const net_addr_mpls *a, const net_addr_mpls *b)
 { return uint_cmp(a->label, b->label); }
 
+#define NET_DO(f) \
+  static inline int net_compare_##f##_mpls(const net_addr_##f##_mpls *a, const net_addr_##f##_mpls *b) \
+{ return net_compare_##f(&(a->addr), &(b->addr)) ?: uint_cmp(a->length, b->length) ?: memcmp(a->label, b->label, a->length - sizeof(net_addr_##f##_mpls)); }
+NET_DO(ip4)
+NET_DO(ip6)
+NET_DO(vpn4)
+NET_DO(vpn6)
+#undef NET_DO
+
 int net_compare(const net_addr *a, const net_addr *b);
 
 
@@ -418,6 +480,15 @@ static inline u32 net_hash_flow6(const net_addr_flow6 *n)
 
 static inline u32 net_hash_mpls(const net_addr_mpls *n)
 { return n->label; }
+
+#define NET_DO(f) \
+  static inline u32 net_hash_##f##_mpls(const net_addr_##f##_mpls *n) \
+  { return net_hash_##f(&(n->addr)); }
+NET_DO(ip4)
+NET_DO(ip6)
+NET_DO(vpn4)
+NET_DO(vpn6)
+#undef NET_DO
 
 u32 net_hash(const net_addr *a);
 
