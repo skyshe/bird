@@ -45,8 +45,8 @@ extern struct protocol proto_unix_kernel;
 struct krt_config {
   struct proto_config c;
   struct krt_params sys;	/* Sysdep params */
+  btime scan_time;		/* How often we re-scan routes */
   int persist;			/* Keep routes when we exit */
-  int scan_time;		/* How often we re-scan routes */
   int learn;			/* Learn routes from other sources */
   int devroutes;		/* Allow export of device routes */
   int graceful_restart;		/* Regard graceful restart recovery */
@@ -103,7 +103,7 @@ struct kif_primary_item {
 struct kif_config {
   struct proto_config c;
   struct kif_params sys;	/* Sysdep params */
-  int scan_time;		/* How often we re-scan interfaces */
+  btime scan_time;		/* How often we re-scan interfaces */
   list primary;			/* Preferences for primary addresses (struct kif_primary_item) */
 };
 

@@ -56,7 +56,7 @@ kern_item:
  | PERSIST bool { THIS_KRT->persist = $2; }
  | SCAN TIME expr {
       /* Scan time of 0 means scan on startup only */
-      THIS_KRT->scan_time = $3;
+      THIS_KRT->scan_time = $3 S_;
    }
  | LEARN bool {
       THIS_KRT->learn = $2;
@@ -90,7 +90,7 @@ kif_item:
    proto_item
  | SCAN TIME expr {
       /* Scan time of 0 means scan on startup only */
-      THIS_KIF->scan_time = $3;
+      THIS_KIF->scan_time = $3 S_;
    }
  | PRIMARY opttext net_or_ipa {
      struct kif_primary_item *kpi = cfg_alloc(sizeof (struct kif_primary_item));
