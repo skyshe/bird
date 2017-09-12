@@ -82,7 +82,7 @@ struct radv_opt_route {
 };
 
 static int
-radv_prepare_route(struct radv_iface *ifa, struct radv_cache_node *prefix,
+radv_prepare_route(struct radv_iface *ifa, struct radv_route *prefix,
 		   char **buf, char *bufend)
 {
   struct radv_config *cf = (struct radv_config *) ifa->ra->p.cf;
