@@ -435,6 +435,7 @@ radv_routes_gc(timer *tm)
   bird_clock_t nearest_expire = 0;
   struct fib_iterator fit;
   FIB_ITERATE_INIT(&fit, &p->route_cache);
+  restart:
   FIB_ITERATE_START(&p->route_cache, &fit, node)
   {
     struct radv_route *cnode = (void *) node;
@@ -445,6 +446,9 @@ radv_routes_gc(timer *tm)
       /* Allows deletion of node */
       FIB_ITERATE_PUT(&fit, node);
       fib_delete(&p->route_cache, node);
+      /* We need to take out the iterator, which is done in the preface of the
+       * FIB_ITERATE_START */
+      goto restart;
     }
     else if (!nearest_expire || cnode->expires < nearest_expire)
       nearest_expire = cnode->expires;
