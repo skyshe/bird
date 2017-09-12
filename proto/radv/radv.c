@@ -433,32 +433,23 @@ radv_routes_gc(timer *tm)
   RADV_TRACE(D_EVENTS, "Route GC running");
   /* 0 -> no expiration scheduled */
   bird_clock_t nearest_expire = 0;
-  uint count = p->route_cache.hash_size;
-  /*
-   * Allocate dynamically. We expect to have very few routes, but we can't be
-   * *sure* of that. So we don't risk overflowing the stack with huge array.
-   */
-  struct radv_cache_node **condemned = mb_alloc(p->p.pool,
-						count * sizeof *condemned);
-  uint condemned_count = 0;
-  FIB_WALK(&p->route_cache, node)
+  struct fib_iterator fit;
+  FIB_ITERATE_INIT(&fit, &p->route_cache);
+  FIB_ITERATE_START(&p->route_cache, &fit, node)
   {
     struct radv_route *cnode = (void *) node;
     if (cnode->alive)
       continue;
     if (cnode->expires <= now)
-      /* Can't delete right away when iterating */
-      condemned[condemned_count ++] = cnode;
+    {
+      /* Allows deletion of node */
+      FIB_ITERATE_PUT(&fit, node);
+      fib_delete(&p->route_cache, node);
+    }
     else if (!nearest_expire || cnode->expires < nearest_expire)
       nearest_expire = cnode->expires;
   }
-  FIB_WALK_END;
-
-  uint i;
-  for (i = 0; i < condemned_count; i ++)
-    fib_delete(&p->route_cache, condemned[i]);
-
-  mb_free(condemned);
+  FIB_ITERATE_END(node);
 
   if (nearest_expire)
     tm_start(p->gc_timer, nearest_expire - now);
