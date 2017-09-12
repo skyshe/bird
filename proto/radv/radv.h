@@ -133,7 +133,7 @@ struct radv_dnssl_config
  * attribute for that feels useless, so we just use the same one as in the main
  * packet.
  */
-struct radv_cache_node
+struct radv_route
 {
   struct fib_node header;
   u32 lifetime;			/* Lifetime from an attribute */
@@ -158,7 +158,7 @@ struct radv_proto
    *
    * Therefore, we keep them here.
    *
-   * (struct radv_cache_node)
+   * (struct radv_route)
    */
   struct fib route_cache;
   timer *gc_timer;
