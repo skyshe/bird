@@ -443,7 +443,7 @@ radv_routes_gc(timer *tm)
   uint condemned_count = 0;
   FIB_WALK(&p->route_cache, node)
   {
-    struct radv_cache_node *cnode = (void *) node;
+    struct radv_route *cnode = (void *) node;
     if (cnode->alive)
       continue;
     if (cnode->expires <= now)
@@ -496,8 +496,8 @@ radv_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old U
      * And yes, we exclude the trigger route on purpose from the cache.
      */
 
-    struct radv_cache_node *node = fib_find(&p->route_cache, &n->n.prefix,
-					    n->n.pxlen);
+    struct radv_route *node = fib_find(&p->route_cache, &n->n.prefix,
+				       n->n.pxlen);
     if (node && !new && node->alive) {
       node->alive = 0;
       node->expires = now + cf->specific_linger_time;
@@ -581,8 +581,7 @@ radv_set_propagate(struct radv_proto *p, u8 old, u8 new)
 
   if (new) {
     RADV_TRACE(D_EVENTS, "Creating a route cache");
-    fib_init(&p->route_cache, p->p.pool, sizeof(struct radv_cache_node), 0,
-	     NULL);
+    fib_init(&p->route_cache, p->p.pool, sizeof(struct radv_route), 0, NULL);
   } else {
     RADV_TRACE(D_EVENTS, "Getting rid of a route cache");
     fib_free(&p->route_cache);
