@@ -47,7 +47,7 @@ radv_proto_start: proto_start RADV
   init_list(&RADV_CFG->rdnss_list);
   init_list(&RADV_CFG->dnssl_list);
   RADV_CFG->specific_lifetime = DEFAULT_VALID_LIFETIME;
-  RADV_CFG->specific_linger_time = DEFAULT_LINGER_TIME;
+  RADV_CFG->linger_time = DEFAULT_LINGER_TIME;
 };
 
 radv_proto_item:
@@ -67,9 +67,9 @@ radv_proto_item:
      RADV_CFG->specific_lifetime = $3;
      if ($4 != -1) RADV_CFG->specific_lifetime_sensitive = $4;
    }
- | SPECIFIC LINGER TIME expr {
-     RADV_CFG->specific_linger_time = $4;
-     if (($4 < 0) || ($4 > 3600))
+ | LINGER TIME expr {
+     RADV_CFG->linger_time = $3;
+     if (($3 < 0) || ($3 > 3600))
        cf_error("Linger time must be in range 0-3600");
    }
  ;
@@ -96,7 +96,6 @@ radv_iface_start:
   RADV_IFACE->max_ra_int = DEFAULT_MAX_RA_INT;
   RADV_IFACE->min_delay = DEFAULT_MIN_DELAY;
   RADV_IFACE->current_hop_limit = DEFAULT_CURRENT_HOP_LIMIT;
-  RADV_IFACE->linger_time = DEFAULT_LINGER_TIME;
   RADV_IFACE->default_lifetime = -1;
   RADV_IFACE->default_lifetime_sensitive = 1;
   RADV_IFACE->default_preference = RA_PREF_MEDIUM;
@@ -111,7 +110,6 @@ radv_iface_item:
  | LINK MTU expr { RADV_IFACE->link_mtu = $3; if ($3 < 0) cf_error("Link MTU must be 0 or positive"); }
  | REACHABLE TIME expr { RADV_IFACE->reachable_time = $3; if (($3 < 0) || ($3 > 3600000)) cf_error("Reachable time must be in range 0-3600000"); }
  | RETRANS TIMER expr { RADV_IFACE->retrans_timer = $3; if ($3 < 0) cf_error("Retrans timer must be 0 or positive"); }
- | LINGER TIME expr { RADV_IFACE->linger_time = $3; if (($3 < 0) || ($3 > 3600)) cf_error("Linger time must be in range 0-3600"); }
  | CURRENT HOP LIMIT expr { RADV_IFACE->current_hop_limit = $4; if (($4 < 0) || ($4 > 255))  cf_error("Current hop limit must be in range 0-255"); }
  | DEFAULT LIFETIME expr radv_sensitive {
      RADV_IFACE->default_lifetime = $3;

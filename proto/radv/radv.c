@@ -51,16 +51,6 @@ radv_timer(timer *tm)
 
   RADV_TRACE(D_EVENTS, "Timer fired on %s", ifa->iface->name);
 
-  /*
-   * If some dead prefixes expired, regenerate the prefix list and the packet.
-   * We do so by pretending there was a change on the interface.
-   *
-   * This sets the timer, but we replace it just at the end of this function
-   * (replacing a timer is fine).
-   */
-  if (ifa->prefix_expires && (ifa->prefix_expires <= now))
-    radv_iface_notify(ifa, RA_EV_GC);
-
   radv_send_ra(ifa, 0);
 
   /* Update timer */
@@ -117,7 +107,7 @@ static void
 radv_prepare_prefixes(struct radv_iface *ifa)
 {
   struct radv_proto *p = ifa->ra;
-  struct radv_iface_config *cf = ifa->cf;
+  struct radv_config *cf = (void *) p->p.cf;
   struct radv_prefix *pfx;
 
   /* First mark all the prefixes as unused */
@@ -162,16 +152,8 @@ radv_prepare_prefixes(struct radv_iface *ifa)
     existing->cf = pc;
   }
 
-  /*
-   * Garbage-collect the prefixes. If something isn't used, it dies (but isn't
-   * dropped just yet). If something is dead and rots there for long enough,
-   * clean it up.
-   */
   bird_clock_t expires = now + cf->linger_time;
-  bird_clock_t expires_min = 0;
-  struct radv_prefix *next;
-  WALK_LIST_DELSAFE(pfx, next, ifa->prefixes)
-  {
+  WALK_LIST(pfx, ifa->prefixes)
     if (pfx->alive && !pfx->mark)
     {
       RADV_TRACE(D_EVENTS, "Marking prefix %I/$d on %s as dead",
@@ -180,28 +162,10 @@ radv_prepare_prefixes(struct radv_iface *ifa)
       pfx->alive = 0;
       pfx->expires = expires;
       pfx->cf = &dead_prefix;
+
+      if (!tm_active(p->gc_timer) || cf->linger_time < tm_remains(p->gc_timer))
+	tm_start(p->gc_timer, cf->linger_time);
     }
-
-    if (!pfx->alive)
-    {
-      if (pfx->expires <= now)
-      {
-	RADV_TRACE(D_EVENTS, "Removing prefix %I/%d on %s",
-		   pfx->prefix, pfx->len, ifa->iface->name);
-
-	rem_node(NODE pfx);
-	mb_free(pfx);
-      }
-      else
-      {
-	/* Find minimum expiration time */
-	if (!expires_min || (pfx->expires < expires_min))
-	  expires_min = pfx->expires;
-      }
-    }
-  }
-
-  ifa->prefix_expires = expires_min;
 }
 
 static char* ev_name[] = { NULL, "Init", "Change", "RS", "Garbage collect" };
@@ -417,22 +381,23 @@ radv_import_control(struct proto *P, rte **new, ea_list **attrs UNUSED, struct l
 }
 
 /*
- * Cleans up all the dead routes that expired and schedules itself to be run
- * again if there are more routes waiting for expiration.
+ * Cleans up all the dead routes that expired and returns the next expiration
+ * time (absolute).
  *
- * Invoked as a timer callback (radv_proto::gc_timer).
+ * If no expiration is needed, 0 is returned.
  */
-static void
-radv_routes_gc(timer *tm)
+static bird_clock_t
+radv_routes_gc(struct radv_proto *p)
 {
-  struct radv_proto *p = (void *) tm->data;
   struct radv_config *cf = (void *) p->p.cf;
-  /* In case of race conditions after turning it off */
   if (!cf->propagate_specific)
-    return;
+    /* No routes -> no expiration */
+    return 0;
   RADV_TRACE(D_EVENTS, "Route GC running");
   /* 0 -> no expiration scheduled */
   bird_clock_t nearest_expire = 0;
+  /* Should we invalidate the packets in interfaces? */
+  u8 invalidate = 0;
   struct fib_iterator fit;
   FIB_ITERATE_INIT(&fit, &p->route_cache);
   restart:
@@ -443,6 +408,7 @@ radv_routes_gc(timer *tm)
       continue;
     if (cnode->expires <= now)
     {
+      invalidate = 1;
       /* Allows deletion of node */
       FIB_ITERATE_PUT(&fit, node);
       fib_delete(&p->route_cache, node);
@@ -455,10 +421,85 @@ radv_routes_gc(timer *tm)
   }
   FIB_ITERATE_END(node);
 
+  if (invalidate)
+  {
+    /* Invalidate the packets in all the interfaces, but don't trigger them right
+     * away. */
+    struct radv_iface *ifa;
+    WALK_LIST(ifa, p->iface_list)
+      ifa->plen = 0;
+  }
+
+  return nearest_expire;
+}
+
+/*
+ * Garbage-collect the prefixes on the interface and return when the next
+ * expiration happens. Return 0 if no expiration is planned.
+ */
+static bird_clock_t
+radv_prefix_gc(struct radv_iface *ifa)
+{
+  struct radv_proto *p = ifa->ra;
+
+  bird_clock_t expires_min = 0;
+  struct radv_prefix *pfx, *next;
+  WALK_LIST_DELSAFE(pfx, next, ifa->prefixes)
+  {
+    if (!pfx->alive)
+    {
+      if (pfx->expires <= now)
+      {
+	RADV_TRACE(D_EVENTS, "Removing prefix %I/%d on %s",
+		   pfx->prefix, pfx->len, ifa->iface->name);
+
+	rem_node(NODE pfx);
+	mb_free(pfx);
+	/* Invalidate the packet and create a new one next time (but don't
+	 * trigger broadcast) */
+	ifa->plen = 0;
+      }
+      else
+      {
+	/* Find minimum expiration time */
+	if (!expires_min || (pfx->expires < expires_min))
+	  expires_min = pfx->expires;
+      }
+    }
+  }
+
+  return expires_min;
+}
+
+/*
+ * Runs all the schedulet cleanups and schedules the next cleanup if one is
+ * needed.
+ *
+ * Invoked as a timer callback (radv_proto::gc_timer).
+ */
+static void
+radv_gc(timer *tm)
+{
+  struct radv_proto *p = (void *) tm->data;
+  bird_clock_t nearest_expire = radv_routes_gc(p);
+
+  struct radv_iface *ifa;
+  WALK_LIST(ifa, p->iface_list)
+  {
+    bird_clock_t iface_expire = radv_prefix_gc(ifa);
+    if (!nearest_expire || (iface_expire && iface_expire < nearest_expire))
+      nearest_expire = iface_expire;
+  }
+
   if (nearest_expire)
     tm_start(p->gc_timer, nearest_expire - now);
 
-  radv_iface_notify_all(p, RA_EV_CHANGE);
+  /*
+   * Note that we do *not* notify the interfaces about a change, we let them
+   * invalidate their own packets themselves. We also don't trigger broadcasting
+   * the new packets right away because the disappearance of 0-lifetime things
+   * in it is not interesting.
+   */
 }
 
 static void
@@ -495,10 +536,9 @@ radv_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old U
 				       n->n.pxlen);
     if (node && !new && node->alive) {
       node->alive = 0;
-      node->expires = now + cf->specific_linger_time;
-      if (!tm_active(p->gc_timer) ||
-	  cf->specific_linger_time < tm_remains(p->gc_timer))
-	tm_start(p->gc_timer, cf->specific_linger_time);
+      node->expires = now + cf->linger_time;
+      if (!tm_active(p->gc_timer) || cf->linger_time < tm_remains(p->gc_timer))
+	tm_start(p->gc_timer, cf->linger_time);
     }
 
     if (new) {
@@ -613,7 +653,7 @@ radv_start(struct proto *P)
   p->refeed_request->data = p;
 
   timer *tm = tm_new(P->pool);
-  tm->hook = radv_routes_gc;
+  tm->hook = radv_gc;
   tm->data = p;
   tm->randomize = 0;
   tm->recurrent = 0;

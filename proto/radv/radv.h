@@ -58,7 +58,8 @@ struct radv_config
 				   RFC 4191? */
   u32 specific_lifetime;	/* Lifetime for the above more specific routes */
   u32 specific_lifetime_sensitive; /* Should the lifetime be sensitive to the trigger? */
-  u32 specific_linger_time;	/* For how long we advertise dead routes with lifetime = 0 */
+  u32 linger_time;		/* For how long we advertise dead routes and prefixes with
+				   lifetime = 0 */
 };
 
 struct radv_iface_config
@@ -71,9 +72,6 @@ struct radv_iface_config
   u32 min_ra_int;		/* Standard options from RFC 4861 */
   u32 max_ra_int;
   u32 min_delay;
-
-  u32 linger_time;		/* How long a dead prefix should still be advertised with 0
-				   lifetime */
 
   u8 rdnss_local;		/* Global list is not used for RDNSS */
   u8 dnssl_local;		/* Global list is not used for DNSSL */
@@ -146,7 +144,7 @@ struct radv_route
 struct radv_proto
 {
   struct proto p;
-  list iface_list;		/* List of active ifaces */
+  list iface_list;		/* List of active ifaces (struct radv_iface) */
   u8 active;			/* Whether radv is active w.r.t. triggers */
   event *refeed_request;	/* Sometimes we need to asynchronously request
 				   refeeding of routes. */
@@ -186,7 +184,6 @@ struct radv_iface
   struct ifa *addr;		/* Link-local address of iface */
   struct pool *pool;		/* A pool for interface-specific things */
   list prefixes;		/* The prefixes we advertise (struct radv_prefix) */
-  bird_clock_t prefix_expires;	/* When the soonest prefix expires (0 = none dead) */
 
   timer *timer;
   struct object_lock *lock;
