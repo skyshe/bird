@@ -31,7 +31,7 @@ CF_KEYWORDS(RADV, PREFIX, INTERFACE, MIN, MAX, RA, DELAY, INTERVAL,
 	TIMER, CURRENT, HOP, LIMIT, DEFAULT, VALID, PREFERRED, MULT,
 	LIFETIME, SKIP, ONLINK, AUTONOMOUS, RDNSS, DNSSL, NS, DOMAIN,
 	LOCAL, TRIGGER, SENSITIVE, PREFERENCE, LOW, MEDIUM, HIGH, PROPAGATE,
-	SPECIFIC, RA_PREFERENCE, RA_LIFETIME)
+	ROUTES, RA_PREFERENCE, RA_LIFETIME)
 
 %type<i> radv_mult radv_sensitive radv_preference
 
@@ -46,7 +46,7 @@ radv_proto_start: proto_start RADV
   init_list(&RADV_CFG->pref_list);
   init_list(&RADV_CFG->rdnss_list);
   init_list(&RADV_CFG->dnssl_list);
-  RADV_CFG->specific_lifetime = DEFAULT_VALID_LIFETIME;
+  RADV_CFG->routes_lifetime = DEFAULT_VALID_LIFETIME;
   RADV_CFG->linger_time = DEFAULT_LINGER_TIME;
 };
 
@@ -61,11 +61,11 @@ radv_proto_item:
      RADV_CFG->trigger_pxlen = $2.len;
      RADV_CFG->trigger_valid = 1;
    }
- | PROPAGATE SPECIFIC bool { RADV_CFG->propagate_specific = $3; }
- | SPECIFIC LIFETIME expr radv_sensitive {
+ | PROPAGATE ROUTES bool { RADV_CFG->propagate_routes = $3; }
+ | ROUTES LIFETIME expr radv_sensitive {
      if ($3 < 0)  cf_error("Specific lifetime must be 0 or positive");
-     RADV_CFG->specific_lifetime = $3;
-     if ($4 != -1) RADV_CFG->specific_lifetime_sensitive = $4;
+     RADV_CFG->routes_lifetime = $3;
+     if ($4 != -1) RADV_CFG->routes_lifetime_sensitive = $4;
    }
  | LINGER TIME expr {
      RADV_CFG->linger_time = $3;

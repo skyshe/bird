@@ -105,8 +105,8 @@ radv_prepare_route(struct radv_iface *ifa, struct radv_route *prefix,
   if (prefix->lifetime_set)
     lifetime = prefix->lifetime;
   else
-    lifetime = cf->specific_lifetime;
-  if (cf->specific_lifetime_sensitive && !ifa->ra->active)
+    lifetime = cf->routes_lifetime;
+  if (cf->routes_lifetime_sensitive && !ifa->ra->active)
     lifetime = 0;
   if (!prefix->alive)
     lifetime = 0;
@@ -341,7 +341,7 @@ radv_prepare_ra(struct radv_iface *ifa)
   if (radv_prepare_dnssl(ifa, &ic->dnssl_list, &buf, bufend) < 0)
     goto done;
 
-  if (cf->propagate_specific)
+  if (cf->propagate_routes)
   {
     uint rcount = 0;
     FIB_WALK(&p->route_cache, route)

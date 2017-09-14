@@ -54,10 +54,10 @@ struct radv_config
   ip_addr trigger_prefix;	/* Prefix of a trigger route, if defined */
   u8 trigger_pxlen;		/* Pxlen of a trigger route, if defined */
   u8 trigger_valid;		/* Whether a trigger route is defined */
-  u8 propagate_specific;	/* Do we propagate more specific routes, according to
+  u8 propagate_routes;		/* Do we propagate more specific routes, according to
 				   RFC 4191? */
-  u32 specific_lifetime;	/* Lifetime for the above more specific routes */
-  u32 specific_lifetime_sensitive; /* Should the lifetime be sensitive to the trigger? */
+  u32 routes_lifetime;		/* Lifetime for the above more specific routes */
+  u32 routes_lifetime_sensitive; /* Should the lifetime be sensitive to the trigger? */
   u32 linger_time;		/* For how long we advertise dead routes and prefixes with
 				   lifetime = 0 */
 };

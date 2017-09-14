@@ -374,7 +374,7 @@ radv_import_control(struct proto *P, rte **new, ea_list **attrs UNUSED, struct l
   if (radv_net_match_trigger(cf, (*new)->net))
     return RIC_PROCESS;
 
-  if (cf->propagate_specific)
+  if (cf->propagate_routes)
     return RIC_PROCESS;
   else
     return RIC_DROP;
@@ -390,7 +390,7 @@ static bird_clock_t
 radv_routes_gc(struct radv_proto *p)
 {
   struct radv_config *cf = (void *) p->p.cf;
-  if (!cf->propagate_specific)
+  if (!cf->propagate_routes)
     /* No routes -> no expiration */
     return 0;
   RADV_TRACE(D_EVENTS, "Route GC running");
@@ -523,7 +523,7 @@ radv_rt_notify(struct proto *P, rtable *tbl UNUSED, net *n, rte *new, rte *old U
 
     radv_iface_notify_all(p, RA_EV_CHANGE);
   }
-  else if (cf->propagate_specific)
+  else if (cf->propagate_routes)
   {
     /*
      * Some other route we want to send (or stop sending). Update the cache,
@@ -624,7 +624,7 @@ radv_set_propagate(struct radv_proto *p, u8 old, u8 new)
   }
 
   /*
-   * The propagate_specific option has an influence on what routes we allow to
+   * The propagate_routes option has an influence on what routes we allow to
    * reach the filters. Therefore, we need to re-request them and decide based
    * on the new configuration. But preferably *after* we switch the
    * configuration, so we use the new one O:-).
@@ -659,7 +659,7 @@ radv_start(struct proto *P)
   tm->recurrent = 0;
   p->gc_timer = tm;
 
-  radv_set_propagate(p, 0, cf->propagate_specific);
+  radv_set_propagate(p, 0, cf->propagate_routes);
 
   return PS_UP;
 }
@@ -677,7 +677,7 @@ radv_shutdown(struct proto *P)
   struct radv_proto *p = (struct radv_proto *) P;
   struct radv_config *cf = (struct radv_config *) (P->cf);
 
-  radv_set_propagate(p, cf->propagate_specific, 0);
+  radv_set_propagate(p, cf->propagate_routes, 0);
 
   struct radv_iface *ifa;
   WALK_LIST(ifa, p->iface_list)
@@ -704,7 +704,7 @@ radv_reconfigure(struct proto *P, struct proto_config *c)
   P->cf = c; /* radv_check_active() requires proper P->cf */
   p->active = radv_check_active(p);
 
-  radv_set_propagate(p, old->propagate_specific, new->propagate_specific);
+  radv_set_propagate(p, old->propagate_routes, new->propagate_routes);
 
   struct iface *iface;
   WALK_LIST(iface, iface_list)
