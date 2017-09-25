@@ -431,6 +431,7 @@ static inline ip_addr rta_get_ipa(struct rtattr *a)
     return ipa_from_ip6(rta_get_ip6(a));
 }
 
+#ifdef HAVE_MPLS_KERNEL
 static inline ip_addr rta_get_via(struct rtattr *a)
 {
   struct rtvia *v = RTA_DATA(a);
@@ -441,7 +442,6 @@ static inline ip_addr rta_get_via(struct rtattr *a)
   return IPA_NONE;
 }
 
-#ifdef HAVE_MPLS_KERNEL
 static u32 rta_mpls_stack[MPLS_MAX_LABEL_STACK];
 static inline int rta_get_mpls(struct rtattr *a, u32 *stack)
 {
